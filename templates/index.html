@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tax Rates Intake - CactusComply</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .upload-area {
+        border: 2px dashed #007bff;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+      }
+      .upload-area:hover {
+        border-color: #0056b3;
+        background-color: #e9ecef;
+      }
+      .upload-area.dragover {
+        border-color: #28a745;
+        background-color: #d4edda;
+      }
+      .file-info {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #e9ecef;
+        border-radius: 5px;
+        display: none;
+      }
+      .progress {
+        height: 25px;
+        margin-top: 20px;
+      }
+      .navbar-brand {
+        font-weight: bold;
+        color: #007bff !important;
+      }
+      .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+      }
+      .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+      }
+      .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+          <i class="fas fa-chart-line me-2"></i>Tax Rates Intake
+        </a>
+        <div class="navbar-nav ms-auto">
+          <a class="nav-link" href="{{ url_for('index') }}">
+            <i class="fas fa-upload me-1"></i>Upload
+          </a>
+          <a class="nav-link" href="{{ url_for('view_rates') }}">
+            <i class="fas fa-table me-1"></i>View Rates
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %}
+      <div
+        class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'warning' }} alert-dismissible fade show"
+        role="alert"
+      >
+        {{ message }}
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="alert"
+        ></button>
+      </div>
+      {% endfor %} {% endif %} {% endwith %}
+
+      <div class="row">
+        <div class="col-lg-8 mx-auto">
+          <div class="card">
+            <div class="card-header">
+              <h4 class="mb-0">
+                <i class="fas fa-file-csv me-2"></i>Upload Arizona TPT Tax Rates
+                CSV
+              </h4>
+              <p class="text-muted mb-0">
+                Upload CSV files from Arizona Department of Revenue
+              </p>
+            </div>
+            <div class="card-body">
+              <form
+                id="uploadForm"
+                method="POST"
+                action="{{ url_for('upload_file') }}"
+                enctype="multipart/form-data"
+              >
+                <div class="upload-area" id="uploadArea">
+                  <i
+                    class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"
+                  ></i>
+                  <h5>Drag & Drop CSV File Here</h5>
+                  <p class="text-muted">or click to browse files</p>
+                  <input
+                    type="file"
+                    id="fileInput"
+                    name="file"
+                    accept=".csv"
+                    class="d-none"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    onclick="document.getElementById('fileInput').click()"
+                  >
+                    <i class="fas fa-folder-open me-2"></i>Choose File
+                  </button>
+                </div>
+
+                <div class="file-info" id="fileInfo">
+                  <h6><i class="fas fa-file-csv me-2"></i>Selected File:</h6>
+                  <p id="fileName" class="mb-2"></p>
+                  <p id="fileSize" class="text-muted small mb-0"></p>
+                </div>
+
+                <div class="row mt-4">
+                  <div class="col-md-6">
+                    <label for="effective_date" class="form-label">
+                      <i class="fas fa-calendar me-1"></i>Effective Date
+                    </label>
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="effective_date"
+                      name="effective_date"
+                      required
+                    />
+                    <div class="form-text">
+                      Date when these rates become effective
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="progress mt-4"
+                  id="progressBar"
+                  style="display: none"
+                >
+                  <div
+                    class="progress-bar progress-bar-striped progress-bar-animated"
+                    role="progressbar"
+                    style="width: 0%"
+                  ></div>
+                </div>
+
+                <div class="d-grid gap-2 mt-4">
+                  <button
+                    type="submit"
+                    class="btn btn-primary btn-lg"
+                    id="submitBtn"
+                  >
+                    <i class="fas fa-upload me-2"></i>Upload & Process CSV
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="card mt-4">
+            <div class="card-header">
+              <h5 class="mb-0">
+                <i class="fas fa-info-circle me-2"></i>CSV Format Requirements
+              </h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <h6>Required Columns:</h6>
+                  <ul class="list-unstyled">
+                    <li>
+                      <i class="fas fa-check text-success me-2"></i>RegionCode
+                    </li>
+                    <li>
+                      <i class="fas fa-check text-success me-2"></i>RegionName
+                    </li>
+                    <li>
+                      <i class="fas fa-check text-success me-2"></i>BusinessCode
+                    </li>
+                    <li>
+                      <i class="fas fa-check text-success me-2"></i
+                      >BusinessCodesName
+                    </li>
+                    <li>
+                      <i class="fas fa-check text-success me-2"></i>TaxRate
+                    </li>
+                  </ul>
+                </div>
+                <div class="col-md-6">
+                  <h6>Example Data:</h6>
+                  <div class="bg-light p-3 rounded">
+                    <code>
+                      RegionCode,RegionName,BusinessCode,BusinessCodesName,TaxRate<br />
+                      PMA,Phoenix Metro Area,017,Restaurants,2.4%<br />
+                      PH,Phoenix,011,Retail Sales,2.4%
+                    </code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-4">
+            <div class="card-header">
+              <h5 class="mb-0">
+                <i class="fas fa-download me-2"></i>Download Latest Rates
+              </h5>
+            </div>
+            <div class="card-body">
+              <p class="text-muted">
+                Visit the Arizona Department of Revenue website to download the
+                latest TPT Rate Table:
+              </p>
+              <a
+                href="https://azdor.gov/business/transaction-privilege-tax/tax-rate-table"
+                target="_blank"
+                class="btn btn-outline-primary"
+              >
+                <i class="fas fa-external-link-alt me-2"></i>ADOR Tax Rate Table
+              </a>
+              <div class="mt-3">
+                <small class="text-muted">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Look for the CSV download link on the page. If only PDF is
+                  available, you may need to convert it to CSV first.
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const uploadArea = document.getElementById("uploadArea");
+      const fileInput = document.getElementById("fileInput");
+      const fileInfo = document.getElementById("fileInfo");
+      const fileName = document.getElementById("fileName");
+      const fileSize = document.getElementById("fileSize");
+      const uploadForm = document.getElementById("uploadForm");
+      const progressBar = document.getElementById("progressBar");
+      const submitBtn = document.getElementById("submitBtn");
+
+      // Drag and drop functionality
+      uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+      });
+
+      uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("dragover");
+      });
+
+      uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          fileInput.files = files;
+          handleFileSelect();
+        }
+      });
+
+      uploadArea.addEventListener("click", () => {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener("change", handleFileSelect);
+
+      function handleFileSelect() {
+        const file = fileInput.files[0];
+        if (file) {
+          fileName.textContent = file.name;
+          fileSize.textContent = `Size: ${(file.size / 1024).toFixed(2)} KB`;
+          fileInfo.style.display = "block";
+        } else {
+          fileInfo.style.display = "none";
+        }
+      }
+
+      // Form submission with progress
+      uploadForm.addEventListener("submit", (e) => {
+        const file = fileInput.files[0];
+        if (!file) {
+          e.preventDefault();
+          alert("Please select a file to upload");
+          return;
+        }
+
+        if (!file.name.toLowerCase().endsWith(".csv")) {
+          e.preventDefault();
+          alert("Please select a CSV file");
+          return;
+        }
+
+        // Show progress bar
+        progressBar.style.display = "block";
+        submitBtn.disabled = true;
+        submitBtn.innerHTML =
+          '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+
+        // Simulate progress (since we can't track actual upload progress easily)
+        let progress = 0;
+        const interval = setInterval(() => {
+          progress += Math.random() * 15;
+          if (progress > 90) progress = 90;
+          progressBar.querySelector(".progress-bar").style.width =
+            progress + "%";
+        }, 200);
+
+        // Clear interval after form submission
+        setTimeout(() => {
+          clearInterval(interval);
+        }, 5000);
+      });
+
+      // Set default effective date to first day of current month
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      document.getElementById("effective_date").value = firstDay
+        .toISOString()
+        .split("T")[0];
+    </script>
+  </body>
+</html>
