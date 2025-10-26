@@ -396,10 +396,11 @@ def api_rates():
         logger.error(f"API error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# Initialize database on startup (runs in both development and production)
+init_database()
+
 if __name__ == '__main__':
-    # Initialize database
-    if init_database():
-        logger.info("Starting Tax Rates Intake Application")
-        app.run(debug=True, host='0.0.0.0', port=5000)
-    else:
-        logger.error("Failed to initialize database. Exiting.")
+    # This only runs for local development (not when using Gunicorn)
+    port = int(os.getenv('PORT', 5000))
+    logger.info(f"Starting Tax Rates Intake Application on port {port}")
+    app.run(debug=True, host='0.0.0.0', port=port)
