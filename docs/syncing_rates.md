@@ -13,20 +13,34 @@ ADOR publishes updated tax rate tables monthly. After February 2026, follow thes
 3. Download the latest CSV file (named like `TPT_RATETABLE_ALL_MMDDYYYY.csv`)
 4. Save it to your Downloads folder
 
-### Step 2: Run the Sync Script
+### Step 2: Run the Add Monthly Script
 
 From the `cactuscomply-taxrates` directory:
 
 ```bash
-# Sync just the new ADOR CSV (skips backup and historical)
-python scripts/003_restore_and_sync_rates.py --skip-backup --skip-historical
+# Add rates from a single CSV file
+python scripts/004_add_monthly_rates.py TPT_RATETABLE_ALL_03012026.csv
+
+# Or with full path
+python scripts/004_add_monthly_rates.py "C:/Users/noson/Downloads/TPT_RATETABLE_ALL_03012026.csv"
 ```
 
 The script will:
-- Find all `TPT_RATETABLE_ALL_*.csv` files in your Downloads folder
-- Parse the date from each filename (e.g., `03012026` = March 1, 2026)
-- Create a new `rate_version` for any new effective dates
+- Parse the effective date from the filename (e.g., `03012026` = March 1, 2026)
+- Create a new `rate_version` for that date (if it doesn't exist)
 - Insert new rates (skips duplicates automatically)
+- Show before/after statistics
+
+### Alternative: Sync All CSVs
+
+If you have multiple CSV files to process, use the comprehensive script:
+
+```bash
+# Sync all TPT_RATETABLE_ALL_*.csv files in Downloads folder
+python scripts/003_restore_and_sync_rates.py --skip-backup --skip-historical
+```
+
+This finds and processes all matching CSV files in chronological order.
 
 ### Step 3: Verify
 

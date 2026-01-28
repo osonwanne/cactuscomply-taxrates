@@ -13,9 +13,10 @@ python app.py                        # Starts Flask on http://localhost:5000
 gunicorn -w 4 -b 0.0.0.0:5000 app:app
 
 # Data loading scripts (in scripts/ folder)
-python scripts/001_load_historical_rates.py  # Load historical rates (TRUNCATES first!)
-python scripts/002_load_jan2026_rates.py     # Add January 2026 rates (incremental)
-python scripts/003_restore_and_sync_rates.py # Comprehensive restore and sync (see options below)
+python scripts/001_load_historical_rates.py       # Load historical rates (TRUNCATES first!)
+python scripts/002_load_jan2026_rates.py          # Add January 2026 rates (incremental)
+python scripts/003_restore_and_sync_rates.py      # Comprehensive restore and sync (see options below)
+python scripts/004_add_monthly_rates.py <file>    # Add single monthly CSV (March 2026+)
 ```
 
 ## Architecture
