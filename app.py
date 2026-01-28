@@ -171,7 +171,7 @@ def create_rate_version(effective_date, uploader):
     try:
         result = supabase.table('rate_versions').insert({
             'effective_date': effective_date,
-            'loaded_at': effective_date  # Use effective_date as loaded_at
+            'loaded_at': datetime.now().isoformat()  # Use current timestamp
         }).execute()
         
         if result.data:
