@@ -148,18 +148,19 @@ def parse_historical_csv(csv_path: str) -> List[Dict]:
     return records
 
 
-def build_jurisdiction_cache() -> Dict[str, int]:
-    """Build cache of region_code -> jurisdiction_id."""
+def build_jurisdiction_cache() -> Dict[str, Tuple[int, str]]:
+    """Build cache of region_code -> (jurisdiction_id, level)."""
     print("\n[3] Building jurisdiction cache...")
 
-    result = supabase.table("jurisdictions").select("id, city_code, region_code").execute()
+    result = supabase.table("jurisdictions").select("id, city_code, region_code, level").execute()
 
     cache = {}
     for j in result.data:
+        level = j.get("level", "city")
         if j.get("city_code"):
-            cache[j["city_code"]] = j["id"]
+            cache[j["city_code"]] = (j["id"], level)
         if j.get("region_code"):
-            cache[j["region_code"]] = j["id"]
+            cache[j["region_code"]] = (j["id"], level)
 
     print(f"    Cached {len(cache)} jurisdiction mappings")
     return cache
@@ -225,8 +226,8 @@ def get_or_create_rate_version(effective_date: str, next_id: int) -> Tuple[int, 
     return next_id, next_id + 1
 
 
-def ensure_jurisdiction_exists(region_code: str, region_name: str, cache: Dict[str, int]) -> int:
-    """Ensure jurisdiction exists, create if needed. Returns jurisdiction_id."""
+def ensure_jurisdiction_exists(region_code: str, region_name: str, cache: Dict[str, Tuple[int, str]]) -> Tuple[int, str]:
+    """Ensure jurisdiction exists, create if needed. Returns (jurisdiction_id, level)."""
     if region_code in cache:
         return cache[region_code]
 
@@ -234,7 +235,7 @@ def ensure_jurisdiction_exists(region_code: str, region_name: str, cache: Dict[s
     max_id_result = supabase.table('jurisdictions').select('id').order('id', desc=True).limit(1).execute()
     new_id = (max_id_result.data[0]['id'] + 1) if max_id_result.data else 1
 
-    # Insert new jurisdiction
+    # Insert new jurisdiction (default to city level)
     supabase.table('jurisdictions').insert({
         'id': new_id,
         'level': 'city',
@@ -243,9 +244,9 @@ def ensure_jurisdiction_exists(region_code: str, region_name: str, cache: Dict[s
         'city_name': region_name or f"{region_code} City"
     }).execute()
 
-    cache[region_code] = new_id
+    cache[region_code] = (new_id, 'city')
     print(f"      Created jurisdiction: {region_code} ({region_name}) -> ID {new_id}")
-    return new_id
+    return (new_id, 'city')
 
 
 def ensure_business_code_exists(code: str, name: str):
@@ -259,7 +260,7 @@ def ensure_business_code_exists(code: str, name: str):
         pass
 
 
-def merge_historical_rates(historical_records: List[Dict], jurisdiction_cache: Dict[str, int], start_version_id: int):
+def merge_historical_rates(historical_records: List[Dict], jurisdiction_cache: Dict[str, Tuple[int, str]], start_version_id: int):
     """Merge historical rates into the database using batch operations."""
     print(f"\n    Merging {len(historical_records)} historical rates (starting version ID: {start_version_id})...")
 
@@ -298,25 +299,35 @@ def merge_historical_rates(historical_records: List[Dict], jurisdiction_cache: D
         # Build batch of new rates
         rates_to_insert = []
         for r in records:
-            jurisdiction_id = jurisdiction_cache.get(r['region_code'])
-            if not jurisdiction_id:
-                jurisdiction_id = ensure_jurisdiction_exists(r['region_code'], r.get('region_name', ''), jurisdiction_cache)
+            lookup = jurisdiction_cache.get(r['region_code'])
+            if not lookup:
+                lookup = ensure_jurisdiction_exists(r['region_code'], r.get('region_name', ''), jurisdiction_cache)
 
-            if not jurisdiction_id:
+            if not lookup:
                 stats['skipped'] += 1
                 continue
+
+            jurisdiction_id, jurisdiction_level = lookup
 
             # Skip if already exists
             if (jurisdiction_id, r['business_code']) in existing_keys:
                 continue
+
+            # Put rate in correct column based on jurisdiction level
+            if jurisdiction_level == 'county':
+                county_rate = r['rate']
+                city_rate = 0.0
+            else:  # city level
+                county_rate = 0.0
+                city_rate = r['rate']
 
             rates_to_insert.append({
                 "rate_version_id": version_id,
                 "jurisdiction_id": jurisdiction_id,
                 "business_code": r['business_code'],
                 "state_rate": 0.0,
-                "county_rate": 0.0,
-                "city_rate": r['rate']
+                "county_rate": county_rate,
+                "city_rate": city_rate
             })
 
         # Batch insert
@@ -348,7 +359,7 @@ def merge_historical_rates(historical_records: List[Dict], jurisdiction_cache: D
     return next_id
 
 
-def sync_ador_csvs(csv_dir: str, jurisdiction_cache: Dict[str, int], start_version_id: int):
+def sync_ador_csvs(csv_dir: str, jurisdiction_cache: Dict[str, Tuple[int, str]], start_version_id: int):
     """Sync ADOR CSV files for 2025-2026 data."""
     print(f"\n[6] Syncing TPT_RATETABLE CSVs (starting version ID: {start_version_id})...")
 
@@ -424,20 +435,30 @@ def sync_ador_csvs(csv_dir: str, jurisdiction_cache: Dict[str, int], start_versi
         # Build batch of new rates
         rates_to_insert = []
         for r in records:
-            jurisdiction_id = jurisdiction_cache.get(r['region_code'])
-            if not jurisdiction_id:
+            lookup = jurisdiction_cache.get(r['region_code'])
+            if not lookup:
                 continue
+
+            jurisdiction_id, jurisdiction_level = lookup
 
             if (jurisdiction_id, r['business_code']) in existing_keys:
                 continue
+
+            # Put rate in correct column based on jurisdiction level
+            if jurisdiction_level == 'county':
+                county_rate = r['rate']
+                city_rate = 0.0
+            else:  # city level
+                county_rate = 0.0
+                city_rate = r['rate']
 
             rates_to_insert.append({
                 "rate_version_id": version_id,
                 "jurisdiction_id": jurisdiction_id,
                 "business_code": r['business_code'],
                 "state_rate": 0.0,
-                "county_rate": 0.0,
-                "city_rate": r['rate']
+                "county_rate": county_rate,
+                "city_rate": city_rate
             })
 
         # Batch insert

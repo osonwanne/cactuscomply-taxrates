@@ -43,16 +43,17 @@ def parse_date_from_filename(filename: str) -> str:
     return f"{year}-{month:02d}-{day:02d}"
 
 
-def build_jurisdiction_cache() -> Dict[str, int]:
-    """Build cache of city_code -> jurisdiction_id."""
-    result = supabase.table("jurisdictions").select("id, city_code, region_code").execute()
+def build_jurisdiction_cache() -> Dict[str, Tuple[int, str]]:
+    """Build cache of city_code/region_code -> (jurisdiction_id, level)."""
+    result = supabase.table("jurisdictions").select("id, city_code, region_code, level").execute()
 
     cache = {}
     for j in result.data:
+        level = j.get("level", "city")  # Default to city if not specified
         if j.get("city_code"):
-            cache[j["city_code"]] = j["id"]
+            cache[j["city_code"]] = (j["id"], level)
         if j.get("region_code"):
-            cache[j["region_code"]] = j["id"]
+            cache[j["region_code"]] = (j["id"], level)
 
     return cache
 
@@ -146,22 +147,34 @@ def add_rates_from_csv(csv_path: str, effective_date: str):
     missing_jurisdiction = 0
 
     for r in records:
-        jurisdiction_id = jurisdiction_cache.get(r['region_code'])
-        if not jurisdiction_id:
+        lookup = jurisdiction_cache.get(r['region_code'])
+        if not lookup:
             missing_jurisdiction += 1
             continue
+
+        jurisdiction_id, jurisdiction_level = lookup
 
         if (jurisdiction_id, r['business_code']) in existing_keys:
             skipped += 1
             continue
+
+        # Put rate in correct column based on jurisdiction level
+        # Counties: rate goes in county_rate column
+        # Cities: rate goes in city_rate column
+        if jurisdiction_level == 'county':
+            county_rate = r['rate']
+            city_rate = 0.0
+        else:  # city level
+            county_rate = 0.0
+            city_rate = r['rate']
 
         rates_to_insert.append({
             "rate_version_id": version_id,
             "jurisdiction_id": jurisdiction_id,
             "business_code": r['business_code'],
             "state_rate": 0.0,
-            "county_rate": 0.0,
-            "city_rate": r['rate']
+            "county_rate": county_rate,
+            "city_rate": city_rate
         })
 
     # Batch insert

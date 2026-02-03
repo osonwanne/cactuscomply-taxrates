@@ -62,11 +62,15 @@ def load_csv_data(csv_path):
         print("No new dates to add!")
         return
 
-    # Build jurisdiction lookup
+    # Build jurisdiction lookup with level information
     jurisdictions = {}
-    j_result = supabase.table('jurisdictions').select('id, city_code').execute()
+    j_result = supabase.table('jurisdictions').select('id, city_code, region_code, level').execute()
     for j in j_result.data:
-        jurisdictions[j['city_code']] = j['id']
+        level = j.get('level', 'city')
+        if j.get('city_code'):
+            jurisdictions[j['city_code']] = (j['id'], level)
+        if j.get('region_code'):
+            jurisdictions[j['region_code']] = (j['id'], level)
 
     # Process only new dates
     total_rates = 0
@@ -87,7 +91,7 @@ def load_csv_data(csv_path):
                     'city_code': region_code,
                     'city_name': region_name or f"{region_code} City"
                 }).execute()
-                jurisdictions[region_code] = new_id
+                jurisdictions[region_code] = (new_id, 'city')
                 print(f"  Created jurisdiction: {region_code}")
 
         # Ensure business codes exist
@@ -119,9 +123,11 @@ def load_csv_data(csv_path):
             business_code = row.get('BusinessCode', '').strip()
             tax_rate = row.get('TaxRate', '0').strip()
 
-            jurisdiction_id = jurisdictions.get(region_code)
-            if not jurisdiction_id:
+            lookup = jurisdictions.get(region_code)
+            if not lookup:
                 continue
+
+            jurisdiction_id, jurisdiction_level = lookup
 
             try:
                 rate_value = float(tax_rate)
@@ -132,13 +138,21 @@ def load_csv_data(csv_path):
             except ValueError:
                 rate_decimal = 0.0
 
+            # Put rate in correct column based on jurisdiction level
+            if jurisdiction_level == 'county':
+                county_rate = rate_decimal
+                city_rate = 0.0
+            else:  # city level
+                county_rate = 0.0
+                city_rate = rate_decimal
+
             rates_to_insert.append({
                 'rate_version_id': rate_version_id,
                 'business_code': business_code,
                 'jurisdiction_id': jurisdiction_id,
                 'state_rate': 0.0,
-                'county_rate': 0.0,
-                'city_rate': rate_decimal
+                'county_rate': county_rate,
+                'city_rate': city_rate
             })
 
         # Insert in batches
