@@ -13,10 +13,13 @@ python app.py                        # Starts Flask on http://localhost:5000
 gunicorn -w 4 -b 0.0.0.0:5000 app:app
 
 # Data loading scripts (in scripts/ folder)
-python scripts/001_load_historical_rates.py       # Load historical rates (TRUNCATES first!)
-python scripts/002_load_jan2026_rates.py          # Add January 2026 rates (incremental)
-python scripts/003_restore_and_sync_rates.py      # Comprehensive restore and sync (see options below)
-python scripts/004_add_monthly_rates.py <file>    # Add single monthly CSV (March 2026+)
+python scripts/001_load_historical_rates.py              # Load historical rates (TRUNCATES first!)
+python scripts/002_load_jan2026_rates.py                 # Add January 2026 rates (incremental)
+python scripts/003_restore_and_sync_rates.py             # Comprehensive restore and sync (see options below)
+python scripts/004_add_monthly_rates.py <file>           # Add single monthly CSV (March 2026+)
+python scripts/004b_load_historical_county_rates.py <csv># Load historical rates with multiple effective dates
+
+# See docs/loading-tax-rates.md for detailed guide on when to use each script
 ```
 
 ## Architecture
@@ -37,9 +40,12 @@ This is a **Flask application** for managing Arizona TPT (Transaction Privilege 
 ### Scripts
 | Script | Description |
 |--------|-------------|
-| `load_historical_rates.py` | Loads historical rates from CSV; **TRUNCATES tables first** |
-| `load_jan2026_rates.py` | Adds January 2026 rates incrementally (no truncation) |
-| `restore_and_sync_rates.py` | Comprehensive restore from backup + merge historical + sync ADOR CSVs |
+| `001_load_historical_rates.py` | Loads historical rates from CSV; **TRUNCATES tables first** |
+| `002_load_jan2026_rates.py` | Adds January 2026 rates incrementally (no truncation) |
+| `003_restore_and_sync_rates.py` | Comprehensive restore from backup + merge historical + sync ADOR CSVs |
+| `004_add_monthly_rates.py` | Add single monthly ADOR CSV (for new months, e.g., March 2026+) |
+| `004b_load_historical_county_rates.py` | Load historical CSV with multiple effective dates (one-off use) |
+| `verify_county_rates.py` | Verify all 15 Arizona counties have rates loaded |
 
 ### Database Tables (Supabase)
 Uses the same Supabase database as `cactuscomply-integrations`:
