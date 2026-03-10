@@ -188,6 +188,12 @@ def build_jurisdiction_cache() -> Dict[str, Tuple[int, str, str]]:
     """
     Build cache of city_code/region_code -> (jurisdiction_id, level, name).
 
+    When multiple jurisdictions share the same code (e.g. a county code like
+    'APA' exists on both a level='city' and level='county' record), prefer
+    the level='county' record. The backend's _get_county_rate_for_city()
+    filters by level='county' and reads the county_rate column, so county
+    rates must go to level='county' jurisdictions.
+
     Returns:
         Dict mapping region codes to (id, level, display_name)
     """
@@ -195,22 +201,32 @@ def build_jurisdiction_cache() -> Dict[str, Tuple[int, str, str]]:
         "id, city_code, region_code, level, city_name, county_name"
     ).execute()
 
-    cache = {}
+    # First pass: collect all candidates per code
+    candidates: Dict[str, List[Tuple[int, str, str]]] = {}
     for j in result.data:
         level = j.get("level", "city")
-        # Determine display name
         if level == "county":
             display_name = j.get("county_name", "")
         else:
             display_name = j.get("city_name", "")
 
-        # Cache by city_code (for cities)
-        if j.get("city_code"):
-            cache[j["city_code"]] = (j["id"], level, display_name)
+        entry = (j["id"], level, display_name)
+        for code in [j.get("city_code"), j.get("region_code")]:
+            if code:
+                candidates.setdefault(code, []).append(entry)
 
-        # Cache by region_code (for counties)
-        if j.get("region_code"):
-            cache[j["region_code"]] = (j["id"], level, display_name)
+    # Second pass: resolve conflicts
+    cache = {}
+    for code, entries in candidates.items():
+        if len(entries) == 1:
+            cache[code] = entries[0]
+        else:
+            # For county codes, prefer level='county' (backend requires it)
+            county_entries = [e for e in entries if e[1] == "county"]
+            if county_entries:
+                cache[code] = county_entries[0]
+            else:
+                cache[code] = entries[0]
 
     return cache
 
