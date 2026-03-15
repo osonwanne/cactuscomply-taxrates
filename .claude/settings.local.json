@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(python:*)",
+      "Bash(claude mcp add supabase -e SUPABASE_ACCESS_TOKEN=sbp_ffbf6d15da0838a29362642ed838d7d38e46d5e9 npx -y @supabase/mcp-server-supabase@latest)",
+      "Bash(claude mcp add supabase -e SUPABASE_ACCESS_TOKEN=sbp_ffbf6d15da0838a29362642ed838d7d38e46d5e9 -- npx -y @supabase/mcp-server-supabase@latest)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp list:*)",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__get_logs",
+      "Bash(psql:*)",
+      "Bash(PGPASSWORD='CactusComply!1' psql:*)",
+      "Bash(grep:*)",
+      "Bash(git -C \"/c/Users/noson/Documents/GitHub/cactuscomply\" log --oneline --all --grep=\"county\" -20)",
+      "Bash(git -C \"/c/Users/noson/Documents/GitHub/cactuscomply-integrations\" log --oneline --all --grep=\"county\" -20)",
+      "Bash(git -C \"/c/Users/noson/Documents/GitHub/cactuscomply-integrations\" log --oneline -20)",
+      "Bash(git -C \"/c/Users/noson/Documents/GitHub/cactuscomply-integrations\" show 4f9ea1f --stat)",
+      "Bash(head:*)",
+      "Bash(wc:*)",
+      "Bash(find \"C:\\\\Users\\\\noson\\\\documents\\\\GitHub\\\\cactuscomply\" -name \"*.py\" -type f 2>/dev/null | head -20)",
+      "Bash(ls -la \"C:/Users/noson/Downloads\"/TPT_RATETABLE_ALL_*.csv)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(diff:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}
