@@ -42,6 +42,12 @@ MARICOPA_JURISDICTION_ID = 71      # MAR - Maricopa County
 PEORIA_BUSINESS_CODE = "214"       # Rental, Leasing and Licensing for Use of TPP
 MARICOPA_BUSINESS_CODE = "014"     # Personal Property Rental
 
+# CactusComply Stripe product IDs (only these get tax rates applied)
+CACTUSCOMPLY_PRODUCT_IDS = [
+    "prod_Smd3Ucc7jlgzku",  # Cactus Comply Pro Plan ($79/mo)
+    "prod_Smd2EMszAZydyD",  # Cactus Comply Starter Plan ($29/mo)
+]
+
 # File to track last-synced rates (stored alongside this script)
 STATE_FILE = Path(__file__).parent / ".stripe_tax_sync_state.json"
 
@@ -179,13 +185,36 @@ def find_or_create_tax_rate(stripe, display_name: str, percentage: float, jurisd
     return tr.id
 
 
+def update_product_metadata(stripe, tax_rate_ids: list, dry_run: bool = False):
+    """Update CactusComply product metadata with current tax rate IDs."""
+    for pid in CACTUSCOMPLY_PRODUCT_IDS:
+        try:
+            if dry_run:
+                print(f"  [DRY RUN] Would update product {pid} metadata")
+                continue
+            stripe.Product.modify(pid, metadata={
+                "default_tax_rates": ",".join(tax_rate_ids),
+                "tax_collection": "az_tpt",
+            })
+            print(f"  [OK] Updated product {pid} metadata")
+        except Exception as e:
+            print(f"  ERROR: Could not update product {pid}: {e}")
+
+
 def update_all_subscriptions(stripe, tax_rate_ids: list, dry_run: bool = False):
-    """Update all active subscriptions to use the given tax rates."""
+    """Update active CactusComply subscriptions to use the given tax rates."""
     updated = 0
     skipped = 0
+    ignored = 0
 
     subs = stripe.Subscription.list(status="active", limit=100)
     for sub in subs.auto_paging_iter():
+        # Only update subscriptions for CactusComply products
+        sub_product_ids = {item.price.product for item in sub["items"]["data"]}
+        if not sub_product_ids.intersection(CACTUSCOMPLY_PRODUCT_IDS):
+            ignored += 1
+            continue
+
         current_rate_ids = [tr.id for tr in (sub.default_tax_rates or [])]
         if set(current_rate_ids) == set(tax_rate_ids):
             skipped += 1
@@ -199,9 +228,11 @@ def update_all_subscriptions(stripe, tax_rate_ids: list, dry_run: bool = False):
         stripe.Subscription.modify(sub.id, default_tax_rates=tax_rate_ids)
         updated += 1
 
-    print(f"\n  Subscriptions updated: {updated}")
+    print(f"\n  CactusComply subscriptions updated: {updated}")
     if skipped:
-        print(f"  Subscriptions already correct: {skipped}")
+        print(f"  Already correct: {skipped}")
+    if ignored:
+        print(f"  Non-CactusComply subscriptions skipped: {ignored}")
 
 
 # --- Main ---
@@ -295,11 +326,15 @@ def _sync(dry_run: bool = False, force: bool = False):
 
     tax_rate_ids = [peoria_tr_id, maricopa_tr_id]
 
-    # 4. Update all active subscriptions
-    print("\n4. Updating active subscriptions...")
+    # 4. Update CactusComply product metadata
+    print("\n4. Updating CactusComply product metadata...")
+    update_product_metadata(stripe, tax_rate_ids, dry_run=dry_run)
+
+    # 5. Update active CactusComply subscriptions
+    print("\n5. Updating active CactusComply subscriptions...")
     update_all_subscriptions(stripe, tax_rate_ids, dry_run=dry_run)
 
-    # 5. Save state
+    # 6. Save state
     if not dry_run:
         save_state({
             "rates": current_rates,
