@@ -156,16 +156,16 @@ def find_or_create_tax_rate(stripe, display_name: str, percentage: float, jurisd
         if tr.metadata.get("cactuscomply_key") == cc_key:
             # Found our rate — check if percentage matches
             if float(tr.percentage) == round(percentage * 100, 4):
-                print(f"  ✓ Existing Stripe tax rate {tr.id} matches ({tr.percentage}%)")
+                print(f"  [OK] Existing Stripe tax rate {tr.id} matches ({tr.percentage}%)")
                 return tr.id
             else:
                 # Rate changed — archive old one
-                print(f"  → Archiving old tax rate {tr.id} ({tr.percentage}%)")
+                print(f"  -> Archiving old tax rate {tr.id} ({tr.percentage}%)")
                 stripe.TaxRate.modify(tr.id, active=False)
                 break
 
     # Create new tax rate
-    pct = round(percentage * 100, 4)  # Convert decimal to percentage (0.018 → 1.8)
+    pct = round(percentage * 100, 4)  # Convert decimal to percentage (0.018 -> 1.8)
     tr = stripe.TaxRate.create(
         display_name=display_name,
         description=f"AZ TPT - {jurisdiction} ({metadata.get('business_code', '')})",
@@ -175,7 +175,7 @@ def find_or_create_tax_rate(stripe, display_name: str, percentage: float, jurisd
         country="US",
         metadata=metadata,
     )
-    print(f"  ✓ Created new Stripe tax rate {tr.id} ({pct}%)")
+    print(f"  [OK] Created new Stripe tax rate {tr.id} ({pct}%)")
     return tr.id
 
 
@@ -219,7 +219,7 @@ def main():
 
 def _sync(dry_run: bool = False, force: bool = False):
     print("=" * 60)
-    print("CactusComply → Stripe Tax Rate Sync")
+    print("CactusComply -> Stripe Tax Rate Sync")
     print(f"Address: 8427 W Salter Dr, Peoria, AZ 85382")
     print(f"Run time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     if dry_run:
@@ -257,7 +257,7 @@ def _sync(dry_run: bool = False, force: bool = False):
             new = current_rates[key]["rate"]
             if old != new:
                 old_pct = f"{old * 100:.1f}%" if isinstance(old, (int, float)) else old
-                print(f"  CHANGED: {current_rates[key]['jurisdiction']}: {old_pct} → {new * 100:.1f}%")
+                print(f"  CHANGED: {current_rates[key]['jurisdiction']}: {old_pct} -> {new * 100:.1f}%")
             else:
                 print(f"  Unchanged: {current_rates[key]['jurisdiction']}: {new * 100:.1f}%")
     else:
