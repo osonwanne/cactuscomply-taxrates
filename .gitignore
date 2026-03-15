@@ -142,3 +142,5 @@ database_schema.md
 test_sample.csv
 .idea/
 .vscode/
+# Stripe tax sync state (local only)
+scripts/.stripe_tax_sync_state.json
