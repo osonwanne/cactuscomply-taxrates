@@ -449,6 +449,20 @@ def main():
     print("\n" + "="*60)
     verify_rates()
 
+    # Auto-sync Stripe tax rates if rates were ingested
+    print("\n" + "="*60)
+    print("SYNCING STRIPE TAX RATES...")
+    print("="*60)
+    import subprocess
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    sync_script = os.path.join(script_dir, "007_sync_stripe_tax_rates.py")
+    if os.path.exists(sync_script):
+        result = subprocess.run([sys.executable, sync_script], cwd=os.path.dirname(script_dir))
+        if result.returncode != 0:
+            print("WARNING: Stripe sync exited with errors (check STRIPE_SECRET_KEY in .env)")
+    else:
+        print("WARNING: 007_sync_stripe_tax_rates.py not found, skipping Stripe sync")
+
     print("\n" + "="*60)
     print("DONE!")
     print("="*60)

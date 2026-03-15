@@ -8,11 +8,13 @@ Jurisdiction mapping:
   - PE (Peoria, city, id=198): Business Code 214 - Rental, Leasing and Licensing for Use of TPP
   - MAR (Maricopa County, id=71): Business Code 014 - Personal Property Rental
 
+Auto-triggered by 004_add_monthly_rates.py after CSV ingestion.
+Can also be run standalone.
+
 Usage:
     python scripts/007_sync_stripe_tax_rates.py              # Check & sync now
     python scripts/007_sync_stripe_tax_rates.py --dry-run     # Preview changes without applying
     python scripts/007_sync_stripe_tax_rates.py --force       # Force update even if rates unchanged
-    python scripts/007_sync_stripe_tax_rates.py --schedule     # Run monthly on the 1st (via system scheduler)
 
 Requires STRIPE_SECRET_KEY in .env (or environment variable).
 """
@@ -21,9 +23,7 @@ import json
 import os
 import sys
 from datetime import datetime
-from decimal import Decimal
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -206,22 +206,18 @@ def update_all_subscriptions(stripe, tax_rate_ids: list, dry_run: bool = False):
 
 # --- Main ---
 
+def run_stripe_sync(dry_run: bool = False, force: bool = False):
+    """Callable entry point for use by other scripts (e.g. 004_add_monthly_rates.py)."""
+    _sync(dry_run=dry_run, force=force)
+
+
 def main():
     dry_run = "--dry-run" in sys.argv
     force = "--force" in sys.argv
-    schedule_hint = "--schedule" in sys.argv
+    _sync(dry_run=dry_run, force=force)
 
-    if schedule_hint:
-        print("To run monthly, add to Windows Task Scheduler or cron:")
-        print()
-        print("  # Windows Task Scheduler (run on 1st of each month):")
-        print(f'  schtasks /create /tn "CactusComply Stripe Tax Sync" /tr "python {Path(__file__).resolve()}" /sc monthly /d 1 /st 09:00')
-        print()
-        print("  # Linux/Mac cron (1st of each month at 9am):")
-        print(f"  0 9 1 * * cd {Path(__file__).parent.parent} && python {Path(__file__).name}")
-        print()
-        return
 
+def _sync(dry_run: bool = False, force: bool = False):
     print("=" * 60)
     print("CactusComply → Stripe Tax Rate Sync")
     print(f"Address: 8427 W Salter Dr, Peoria, AZ 85382")
