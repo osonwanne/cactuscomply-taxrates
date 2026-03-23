@@ -39,7 +39,10 @@ Review and determine if they should collect AZ TPT:
 - [ ] Determine if CoveredCalls.AI products are taxable SaaS under AZ TPT (same address? same business?)
 - [ ] Determine if mentoring/consulting services are subject to TPT (likely not — services are generally exempt)
 - [ ] When adding NEW products to Stripe, add their product ID to `CACTUSCOMPLY_PRODUCT_IDS` in `scripts/007_sync_stripe_tax_rates.py`
-- [ ] Ensure subscription creation code passes `default_tax_rates` with the tax rate IDs from product metadata
+- [x] Ensure subscription creation code passes `default_tax_rates` with the tax rate IDs from product metadata
+  - Done: `billing_service.py` on `feature/stripe-billing-integration` branch in `cactuscomply-integrations` (commit `55bc09f`)
+  - Adds `subscription_data={"default_tax_rates": AZ_TPT_TAX_RATE_IDS}` to `stripe.checkout.Session.create()`
+  - Goes live when the Stripe billing PR is merged
 
 ## How It Works
 
