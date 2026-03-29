@@ -24,6 +24,7 @@ This file provides guidance to **Forge** when working on the tax rates microserv
 - **Backend:** Flask/Python or Node/Express (TBD)
 - **Data:** Arizona city/county tax rates
 - **API:** RESTful rate lookup service
+- **Supabase MCP** — Project ID: `deewovpugkzskjudmvej` (CactusComply database)
 
 ## Purpose
 Standalone service for Arizona TPT tax rate lookups:
@@ -46,8 +47,18 @@ Called by main CactusComply backend:
 ## Status
 🟡 Service scaffolded, not yet integrated into main app
 
+## Monthly Rate Load Process
+Each month when a new ADOR CSV arrives:
+1. **Dry run** — Compare new CSV against DB to show changes before loading
+2. **Load** — `python scripts/004_add_monthly_rates.py <csv_path_or_--auto>`
+3. **Stripe check** — 004 auto-triggers 007 which checks:
+   - Peoria (PE) / 214 (Rental, Leasing and Licensing for Use of TPP) — city rate
+   - Maricopa County (MAR) / 014 (Personal Property Rental) — county rate
+4. If rates changed, 007 updates Stripe tax rates on all CactusComply subscriptions
+
+CSV filename format: `TPT_RATETABLE_ALL_MMDDYYYY.csv` (effective date parsed from name)
+
 ## Next Work
-- Populate rate database from AZDOR sources
 - Caching layer (Redis)
 - Rate update automation
 - Integration with main backend
