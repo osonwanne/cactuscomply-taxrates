@@ -131,10 +131,8 @@ def load_csv_data(csv_path):
 
             try:
                 rate_value = float(tax_rate)
-                if rate_value > 1:
-                    rate_decimal = rate_value / 100.0
-                else:
-                    rate_decimal = rate_value
+                # AZDOR CSV rates are always percentages — always divide by 100
+                rate_decimal = rate_value / 100.0
             except ValueError:
                 rate_decimal = 0.0
 

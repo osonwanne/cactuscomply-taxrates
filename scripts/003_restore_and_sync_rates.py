@@ -122,8 +122,8 @@ def parse_historical_csv(csv_path: str) -> List[Dict]:
                 # Parse rate
                 rate_str = row.get('TaxRate', '0').strip()
                 rate = float(rate_str.replace('%', ''))
-                if rate > 1:
-                    rate = rate / 100.0
+                # AZDOR CSV rates are always percentages — always divide by 100
+                rate = rate / 100.0
 
                 records.append({
                     'region_code': row.get('RegionCode', '').strip(),
@@ -407,8 +407,8 @@ def sync_ador_csvs(csv_dir: str, jurisdiction_cache: Dict[str, Tuple[int, str]],
                     tax_rate = row.get('TaxRate', '0').strip()
 
                     rate = float(tax_rate.replace('%', ''))
-                    if rate > 1:
-                        rate = rate / 100.0
+                    # AZDOR CSV rates are always percentages — always divide by 100
+                    rate = rate / 100.0
 
                     if region_code and business_code:
                         records.append({

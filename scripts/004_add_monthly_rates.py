@@ -75,10 +75,11 @@ def parse_rate(rate_str: str) -> float:
     rate_str = str(rate_str).strip().replace("%", "")
     try:
         rate = float(rate_str)
-        # If rate > 1, assume it's a percentage (e.g., 5.6% = 5.6)
-        # If rate <= 1, assume it's already decimal (e.g., 0.056)
-        if rate > 1:
-            rate = rate / 100.0
+        # AZDOR CSV rates are always in percentage form (e.g., "2.4" means 2.4%)
+        # Always divide by 100 to convert to decimal.
+        # Previous threshold (> 1) failed for rates of exactly 1%,
+        # storing them as 1.0 (100%) instead of 0.01 (1%).
+        rate = rate / 100.0
         return round(rate, 6)  # 6 decimal places precision
     except ValueError:
         print(f"WARNING: Could not parse rate: '{rate_str}', using 0.0")
