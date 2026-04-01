@@ -245,13 +245,13 @@ def parse_csv_content(csv_content: str, effective_date: str, uploader: str) -> d
                 tax_rate = row.get('TaxRate', '0').strip()
                 
                 # Parse the tax rate (convert percentage to decimal)
+                # AZDOR CSV rates are always in percentage form (e.g., "2.0" means 2%)
                 try:
                     rate_value = float(tax_rate.replace('%', ''))
-                    # Convert percentage to decimal (e.g., 2.4% -> 0.024)
-                    if rate_value > 1:
-                        rate_decimal = rate_value / 100.0
-                    else:
-                        rate_decimal = rate_value
+                    # Always divide by 100 — AZDOR CSV values are percentages
+                    # Previous threshold (> 1) failed for rates of exactly 1%,
+                    # storing them as 1.0 (100%) instead of 0.01 (1%)
+                    rate_decimal = rate_value / 100.0
                 except (ValueError, AttributeError):
                     rate_decimal = 0.0
                 
