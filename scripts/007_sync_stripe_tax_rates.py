@@ -22,7 +22,7 @@ Requires STRIPE_SECRET_KEY in .env (or environment variable).
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -89,45 +89,64 @@ def save_state(state: dict):
         json.dump(state, f, indent=2)
 
 
-def fetch_current_rates(sb: Client) -> dict:
-    """Fetch the latest rates for Peoria (214) and Maricopa County (014)."""
-    rates = {}
+def get_current_version(sb: Client) -> dict:
+    """Latest rate_version whose effective_date has actually arrived (<= today).
 
-    # Peoria city rate
-    result = (
-        sb.table("rates")
-        .select("city_rate, county_rate, rate_version_id, rate_versions!inner(effective_date)")
-        .eq("jurisdiction_id", PEORIA_JURISDICTION_ID)
-        .eq("business_code", PEORIA_BUSINESS_CODE)
-        .order("rate_version_id", desc=True)
+    Future months may be pre-loaded into the DB; they must NOT drive Stripe
+    until they go live, so we ignore any version dated after today.
+    """
+    today = date.today().isoformat()
+    res = (
+        sb.table("rate_versions")
+        .select("id, effective_date")
+        .lte("effective_date", today)
+        .order("effective_date", desc=True)
         .limit(1)
         .execute()
     )
-    if result.data:
-        row = result.data[0]
+    if not res.data:
+        print(f"ERROR: no rate_version with effective_date <= {today}")
+        sys.exit(1)
+    return res.data[0]
+
+
+def fetch_current_rates(sb: Client) -> dict:
+    """Fetch Peoria (214) + Maricopa County (014) rates from the live version."""
+    version = get_current_version(sb)
+    vid, eff = version["id"], version["effective_date"]
+    rates = {}
+
+    peoria = (
+        sb.table("rates")
+        .select("city_rate, county_rate")
+        .eq("rate_version_id", vid)
+        .eq("jurisdiction_id", PEORIA_JURISDICTION_ID)
+        .eq("business_code", PEORIA_BUSINESS_CODE)
+        .limit(1)
+        .execute()
+    )
+    if peoria.data:
         rates["peoria"] = {
-            "rate": float(row["city_rate"]),
-            "effective_date": row["rate_versions"]["effective_date"],
+            "rate": float(peoria.data[0]["city_rate"]),
+            "effective_date": eff,
             "jurisdiction": "Peoria",
             "business_code": PEORIA_BUSINESS_CODE,
             "description": "Rental, Leasing and Licensing for Use of TPP",
         }
 
-    # Maricopa county rate
-    result = (
+    maricopa = (
         sb.table("rates")
-        .select("city_rate, county_rate, rate_version_id, rate_versions!inner(effective_date)")
+        .select("city_rate, county_rate")
+        .eq("rate_version_id", vid)
         .eq("jurisdiction_id", MARICOPA_JURISDICTION_ID)
         .eq("business_code", MARICOPA_BUSINESS_CODE)
-        .order("rate_version_id", desc=True)
         .limit(1)
         .execute()
     )
-    if result.data:
-        row = result.data[0]
+    if maricopa.data:
         rates["maricopa"] = {
-            "rate": float(row["county_rate"]),
-            "effective_date": row["rate_versions"]["effective_date"],
+            "rate": float(maricopa.data[0]["county_rate"]),
+            "effective_date": eff,
             "description": "Personal Property Rental",
             "jurisdiction": "Maricopa County",
             "business_code": MARICOPA_BUSINESS_CODE,
